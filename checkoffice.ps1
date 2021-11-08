@@ -1,22 +1,230 @@
 #CT Script
 #Check Office Version
 
-cls
-$x32 = ${env:ProgramFiles(x86)} + "\Microsoft Office"
-$x64 = $env:ProgramFiles + "\Microsoft Office"
-$OK = $true
+Function Get-Software  {
 
-if (Test-Path -Path $x32) {$Excel32 = Get-ChildItem -Recurse -Path $x32 -Filter "EXCEL.EXE"}
-if (Test-Path -Path $x64) {$Excel64 = Get-ChildItem -Recurse -Path $x64 -Filter "EXCEL.EXE"}
-if ($Excel32) {$Excel = $Excel32}
-if ($Excel64) {$Excel = $Excel64}
-if ($Excel32 -and $Excel64) {"Error: x32 and x64 installation found." ; $Excel32.Fullname ; $Excel64.Fullname ; $OK = $false}
-if ($Excel.Count -gt 1) {"Error: More than one Excel.exe found." ; $Excel.Fullname ; $OK = $false}
-if ($Excel.Count -eq 0) {"Error: Excel.exe not found." ; $OK = $false}
+  [OutputType('System.Software.Inventory')]
+
+  [Cmdletbinding()] 
+
+  Param( 
+
+  [Parameter(ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True)] 
+
+  [String[]]$Computername=$env:COMPUTERNAME
+
+  )         
+
+  Begin {
+
+  }
+
+  Process  {     
+
+  ForEach  ($Computer in  $Computername){ 
+
+  If  (Test-Connection -ComputerName  $Computer -Count  1 -Quiet) {
+
+  $Paths  = @("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall","SOFTWARE\\Wow6432node\\Microsoft\\Windows\\CurrentVersion\\Uninstall")         
+
+  ForEach($Path in $Paths) { 
+
+  Write-Verbose  "Checking Path: $Path"
+
+  #  Create an instance of the Registry Object and open the HKLM base key 
+
+  Try  { 
+
+  $reg=[microsoft.win32.registrykey]::OpenRemoteBaseKey('LocalMachine',$Computer,'Registry64') 
+
+  } Catch  { 
+
+  Write-Error $_ 
+
+  Continue 
+
+  } 
+
+  #  Drill down into the Uninstall key using the OpenSubKey Method 
+
+  Try  {
+
+  $regkey=$reg.OpenSubKey($Path)  
+
+  # Retrieve an array of string that contain all the subkey names 
+
+  $subkeys=$regkey.GetSubKeyNames()      
+
+  # Open each Subkey and use GetValue Method to return the required  values for each 
+
+  ForEach ($key in $subkeys){   
+
+  Write-Verbose "Key: $Key"
+
+  $thisKey=$Path+"\\"+$key 
+
+  Try {  
+
+  $thisSubKey=$reg.OpenSubKey($thisKey)   
+
+  # Prevent Objects with empty DisplayName 
+
+  $DisplayName =  $thisSubKey.getValue("DisplayName")
+
+  If ($DisplayName  -AND $DisplayName  -notmatch '^Update  for|rollup|^Security Update|^Service Pack|^HotFix') {
+
+  $Date = $thisSubKey.GetValue('InstallDate')
+
+  If ($Date) {
+
+  Try {
+
+  $Date = [datetime]::ParseExact($Date, 'yyyyMMdd', $Null)
+
+  } Catch{
+
+  Write-Warning "$($Computer): $_ <$($Date)>"
+
+  $Date = $Null
+
+  }
+
+  } 
+
+  # Create New Object with empty Properties 
+
+  $Publisher =  Try {
+
+  $thisSubKey.GetValue('Publisher').Trim()
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('Publisher')
+
+  }
+
+  $Version = Try {
+
+  #Some weirdness with trailing [char]0 on some strings
+
+  $thisSubKey.GetValue('DisplayVersion').TrimEnd(([char[]](32,0)))
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('DisplayVersion')
+
+  }
+
+  $UninstallString =  Try {
+
+  $thisSubKey.GetValue('UninstallString').Trim()
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('UninstallString')
+
+  }
+
+  $InstallLocation =  Try {
+
+  $thisSubKey.GetValue('InstallLocation').Trim()
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('InstallLocation')
+
+  }
+
+  $InstallSource =  Try {
+
+  $thisSubKey.GetValue('InstallSource').Trim()
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('InstallSource')
+
+  }
+
+  $HelpLink = Try {
+
+  $thisSubKey.GetValue('HelpLink').Trim()
+
+  } 
+
+  Catch {
+
+  $thisSubKey.GetValue('HelpLink')
+
+  }
+
+  $Object = [pscustomobject]@{
+
+  Computername = $Computer
+
+  DisplayName = $DisplayName
+
+  Version  = $Version
+
+  InstallDate = $Date
+
+  Publisher = $Publisher
+
+  UninstallString = $UninstallString
+
+  InstallLocation = $InstallLocation
+
+  InstallSource  = $InstallSource
+
+  HelpLink = $thisSubKey.GetValue('HelpLink')
+
+  EstimatedSizeMB = [decimal]([math]::Round(($thisSubKey.GetValue('EstimatedSize')*1024)/1MB,2))
+
+  }
+
+  $Object.pstypenames.insert(0,'System.Software.Inventory')
+
+  Write-Output $Object
+
+  }
+
+  } Catch {
+
+  Write-Warning "$Key : $_"
+
+  }   
+
+  }
+
+  } Catch  {}   
+
+  $reg.Close() 
+
+  }                  
+
+  } Else  {
+
+  Write-Error  "$($Computer): unable to reach remote system!"
+
+  }
+
+  } 
+
+  } 
+
+}  
 
 
-if ($OK) {
-   $DisplayVersion = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" -Name "DisplayVersion" -ErrorAction SilentlyContinue | Where-Object {$_.DisplayVersion -eq $Excel.VersionInfo.ProductVersion -and $_.PSChildName -notlike "{*}"}
-   $Office = Get-ItemProperty -Path $DisplayVersion.PSPath
-   $Office | ForEach-Object {"Product: " + $_.DisplayName + $(if ($_.InstallLocation -eq $x32) {", 32 Bit"} else {", 64 Bit"})  + ", Productversion: " + $_.PSChildName + ", Build: " + $_.DisplayVersion}
-}
+Get-Software | Sort-Object -Property @{Expression = "DisplayName"; Ascending = $True} | Where-Object {$_.DisplayName -match "Microsoft 365" -or $_.DisplayName -match "Office standard"} | ft -wrap
+
+ 
+

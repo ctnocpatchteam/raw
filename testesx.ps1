@@ -43,22 +43,3 @@ Get-ChildItem * -Recurse | Unblock-File
 clear 
 
 Get-Module -Name VMware.PowerCLI -ListAvailable
-
-
-# Set to ignore invalid ssl certificates if self-certificate
-Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
-
-# prompt for local ip to esxi
-$ESXiIP = Read-Host -Prompt 'Input ESXi IP address: '
-
-# Connect to the ESXi and enter credentials when prompted
-connect-viserver $ESXiIP
-
-# Get list of ESXi hosts and respective Serial Number
-$esxlist = get-vmhost
-foreach($Esx in $esxlist){
-$esxcli=Get-EsxCli -VMHost $Esx
-write-host $Esx.Name $esxcli.hardware.platform.get().SerialNumber
-}
-
-# END OF FILE

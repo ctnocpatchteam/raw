@@ -1,30 +1,4 @@
 Function Get-HPServerStatistics {
-<#
-.Synopsis
-    This will grab current readings from an HP Proliant Server iLO settings.  Tested on HP Proliant DL580 G7, DL360 G8, DL380 G8, DL380 G7 with iLO versions 3.0 and 4.0
-    For updated help and examples refer to -Online version.
-  
- 
-.DESCRIPTION
-    This will grab current readings from an HP Proliant Server iLO settings.  Tested on HP Proliant DL580 G7, DL360 G8, DL380 G8, DL380 G7 with iLO versions 3.0 and 4.0
-    For updated help and examples refer to -Online version.
- 
- 
-.NOTES   
-    Name: Get-HPServerStatistics
-    Author: theSysadminChannel
-    Version: 1.0
-    DateCreated: 2019-Feb-15
-    DateUpdated: 2019-Feb-15
- 
-.LINK
-    https://thesysadminchannel.com/get-hp-server-status-using-powershell-ilo-query -
- 
- 
-.EXAMPLE
-    For updated help and examples refer to -Online version.
- 
-#>
  
     [CmdletBinding()]
     param(
@@ -73,8 +47,8 @@ Function Get-HPServerStatistics {
                         $Password = $Credential.GetNetworkCredential().password
                     } else {
                         #Hardcoding Username and Password in clear text. For cowboys only.
-                        $Username = 'administrator'
-                        $Password = 'Password'
+                        $Username = '#####'
+                        $Password = '#####'
                 }
  
                 $URL      = "https://$Computer/json"

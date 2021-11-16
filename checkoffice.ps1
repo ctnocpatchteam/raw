@@ -224,6 +224,5 @@ Function Get-Software  {
 }  
 
 
-Get-Software | Sort-Object -Property @{Expression = "DisplayName"; Ascending = $True} | Where-Object { ($_.DisplayName -match "365" -or $_.DisplayName -match "2013" -or $_.DisplayName -match "2016" -or $_.DisplayName -match "2019" -or $_.DisplayName -match "2021") -and $_.DisplayName -match "Microsoft"} | ft -wrap
-
+Get-Software | Sort-Object -Property @{Expression = "DisplayName"; Ascending = $True} | Where-Object { ($_.DisplayName -match "365" -or $_.DisplayName -match "2013" -or $_.DisplayName -match "2016" -or $_.DisplayName -match "2019" -or $_.DisplayName -match "2021") -and $_.UninstallString -match "ClicktoRun"} | ft -wrap
 
